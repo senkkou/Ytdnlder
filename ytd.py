@@ -52,8 +52,6 @@ def downloadVideo():
 
         for idx in range(pllen):
             ytv = YouTube(vurl[idx])
-            #canvas.itemconfig(tagOrId=text_line2, text=ytv.title)
-            #canvas.itemconfig(tagOrId=text_line3, text=f"Baixando {idx + 1}/{pllen}")
             while(True):
                 try:
                     stream = ytv.streams.get_by_itag(22)
