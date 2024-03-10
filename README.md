@@ -1,1 +1,1 @@
-Just a little studying project.
+Just a little studying project using tkinter designer and pytube
