@@ -2,10 +2,122 @@ import os
 import sys
 import tkinter
 from pathlib import Path
-from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage, filedialog
+from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage, filedialog, messagebox, simpledialog
+from tkinter.simpledialog import askstring
+import pytube.exceptions
 from pytube import YouTube
 from pytube import Playlist
 from PIL import ImageTk, Image
+
+
+indexI = 0
+indexF = 0
+
+class askBox():
+    def __init__(self, len):
+        irwindow = tkinter.Toplevel()
+
+        irwindow.title("")
+        irwindow.overrideredirect(True)
+        irwindow.geometry('%dx%d+%d+%d' % (356, 120, (window.winfo_screenwidth()/2) - 178, (window.winfo_screenheight()/2) - 60))
+        irwindow.configure(bg="#3A6A79")
+        irwindow.iconphoto(True, PhotoImage(file=resource_path('pudim.png')))
+        window.attributes('-disabled', True)
+        window.attributes('-disabled', False)
+
+        ircanvas = Canvas(
+            irwindow,
+            bg="#3A6A79",
+            height=120,
+            width=356,
+            bd=0,
+            highlightthickness=0,
+            relief="ridge"
+        )
+
+        ircanvas.place(x=0, y=0)
+        irentry_image_1 = PhotoImage(
+            file=resource_path("entry_3.png"))
+        irentry_bg_1 = ircanvas.create_image(
+            98.0,
+            62.5,
+            image=irentry_image_1
+        )
+        irentry_1 = Entry(
+            irwindow,
+            bd=0,
+            bg="#D9D9D9",
+            fg="#000716",
+            highlightthickness=0
+        )
+        irentry_1.place(
+            x=74.0,
+            y=49.0,
+            width=48.0,
+            height=25.0
+        )
+
+        irentry_image_2 = PhotoImage(
+            file=resource_path("entry_4.png"))
+        ircanvas.create_image(
+            258.0,
+            62.5,
+            image=irentry_image_2
+        )
+        irentry_2 = Entry(
+            irwindow,
+            bd=0,
+            bg="#D9D9D9",
+            fg="#000716",
+            highlightthickness=0
+        )
+        irentry_2.place(
+            x=234.0,
+            y=49.0,
+            width=48.0,
+            height=25.0
+        )
+        irentry_1.insert(0, 1)
+        irentry_2.insert(0, len)
+
+        ircanvas.create_text(
+            8.0,
+            0.0,
+            anchor="nw",
+            text="Playlist detectada, defina o intervalo de download",
+            fill="#FFFFFF",
+            font=("Itim Regular", 16 * -1)
+        )
+
+        ircanvas.create_text(
+            170.0,
+            56.0,
+            anchor="nw",
+            text="A",
+            fill="#FFFFFF",
+            font=("Itim Regular", 24 * -1)
+        )
+
+        button_image_4 = PhotoImage(
+            file=resource_path("button_4.png"))
+        button_4 = Button(
+            irwindow,
+            image=button_image_4,
+            borderwidth=0,
+            highlightthickness=0,
+            command=lambda: setIndex(str(irentry_1.get()), str(irentry_2.get()), irwindow),
+            relief="flat"
+        )
+        button_4.place(
+            x=122.0,
+            y=86.0,
+            width=112.0,
+            height=27.0
+        )
+
+        irwindow.resizable(False, False)
+        window.wait_window(irwindow)
+
 
 def selectFolder():
     entry_2.delete(0, 'end')
@@ -23,6 +135,10 @@ def resource_path(relative_path):
 
 
 def downloadVideo():
+    canvas.itemconfig(tagOrId=text_line1, text="")
+    canvas.itemconfig(tagOrId=text_line2, text="")
+    canvas.itemconfig(tagOrId=text_line3, text="")
+    window.update()
     err = 0
     url = str(entry_1.get())
     pl = 0
@@ -31,47 +147,64 @@ def downloadVideo():
         pl = 1
 
     if pl == 0:
-        ytv = YouTube(url)
+        try:
+            ytv = YouTube(url)
+        except pytube.exceptions.RegexMatchError:
+            return
+        lprint(text_line1, "Download de arquivo único de vídeo")
+        lprint(text_line2, str(ytv.title))
+        lprint(text_line3, "Baixando: 1/1")
         stream = ytv.streams.get_by_itag(22)
         try:
             stream.download(filename=f'{ytv.title}.mp4', output_path=path)
         except Exception:
+            lprint(text_line2, "Nome inválido")
             stream.download(filename=f'Invalid name.mp4', output_path=path)
             err =1
-
-        canvas.itemconfig(tagOrId=text_line1, text="Baixado arquivo em vídeo")
-        canvas.itemconfig(tagOrId=text_line2, text=ytv.title)
         if err==0:
-            canvas.itemconfig(tagOrId=text_line3, text="Concluído com sucesso")
+            lprint(text_line3, "Concluído com sucesso")
         elif err==1:
-            canvas.itemconfig(tagOrId=text_line3, text="Download concluído, porém com nome inválido")
+            lprint(text_line3, "Concluído com nome inválido")
     elif pl == 1:
-        ytpl = Playlist(url)
+        try:
+            ytpl = Playlist(url)
+        except pytube.exceptions.RegexMatchError:
+            return
         pllen = ytpl.length
         vurl = ytpl.video_urls
-
+        askIndexRange(pllen)
+        lprint(text_line1, "Download de Playlist de vídeo")
+        global indexI, indexF
         for idx in range(pllen):
-            ytv = YouTube(vurl[idx])
-            while(True):
+            if indexI - 1 <= idx < indexF:
+                ytv = YouTube(vurl[idx])
+                lprint(text_line2, ytv.title)
+                lprint(text_line3, f"Baixando {idx + 1}/{pllen}")
+                while(True):
+                    try:
+                        stream = ytv.streams.get_by_itag(22)
+                        break
+                    except Exception:
+                        pass
                 try:
-                    stream = ytv.streams.get_by_itag(22)
-                    break
+                    stream.download(filename=f'{ytv.title}.mp4', output_path=path)
                 except Exception:
-                    pass
-            try:
-                stream.download(filename=f'{ytv.title}.mp4', output_path=path)
-            except Exception:
-                stream.download(filename=f'Index-{idx}.mp4', output_path=path)
-                err = 1
-            canvas.itemconfig(tagOrId=text_line1, text="Playlist baixada em vídeo")
-            canvas.itemconfig(tagOrId=text_line2, text=f'{pllen} vídeos')
-            if err == 0:
-                canvas.itemconfig(tagOrId=text_line3, text="Concluídos com sucesso")
-            elif err == 1:
-                canvas.itemconfig(tagOrId=text_line3, text="Download concluído, houve nome inválido")
-
+                    lprint(text_line2, f"Nome inválido ({idx+1})")
+                    stream.download(filename=f'Index-{idx+1}.mp4', output_path=path)
+                    err = err + 1
+        if err == 0:
+            lprint(text_line3, "Concluído com sucesso")
+        elif err > 0:
+            lprint(text_line3, f"Download concluído, {err} nome(s) inválido(s)")
+        lprint(text_line2, "")
+        indexI = 0
+        indexF = 0
 
 def downloadAudio():
+    canvas.itemconfig(tagOrId=text_line1, text="")
+    canvas.itemconfig(tagOrId=text_line2, text="")
+    canvas.itemconfig(tagOrId=text_line3, text="")
+    window.update()
     err = 0
     url = str(entry_1.get())
     pl = 0
@@ -80,50 +213,79 @@ def downloadAudio():
         pl = 1
 
     if pl == 0:
-        ytv = YouTube(url)
-        stream = ytv.streams.get_audio_only()
+        try:
+            ytv = YouTube(url)
+        except pytube.exceptions.RegexMatchError:
+            return
+        lprint(text_line1, "Download de arquivo único de áudio")
+        lprint(text_line2, str(ytv.title))
+        lprint(text_line3, "Baixando: 1/1")
+        stream = ytv.streams.get_by_itag(22)
         try:
             stream.download(filename=f'{ytv.title}.mp3', output_path=path)
         except Exception:
+            lprint(text_line2, "Nome inválido")
             stream.download(filename=f'Invalid name.mp3', output_path=path)
-        canvas.itemconfig(tagOrId=text_line1, text="Baixado arquivo em áudio")
-        canvas.itemconfig(tagOrId=text_line2, text=ytv.title)
-        if err == 0:
-            canvas.itemconfig(tagOrId=text_line3, text="Concluído com sucesso")
-        elif err == 1:
-            canvas.itemconfig(tagOrId=text_line3, text="Download concluído, porém com nome inválido")
+            err =1
+        if err==0:
+            lprint(text_line3, "Concluído com sucesso")
+        elif err==1:
+            lprint(text_line3, "Concluído com nome inválido")
     elif pl == 1:
-        ytpl = Playlist(url)
+        try:
+            ytpl = Playlist(url)
+        except pytube.exceptions.RegexMatchError:
+            return
         pllen = ytpl.length
         vurl = ytpl.video_urls
-
+        askIndexRange(pllen)
+        lprint(text_line1, "Download de Playlist de áudio")
+        global indexI, indexF
         for idx in range(pllen):
-            ytv = YouTube(vurl[idx])
-            while(True):
+            if indexI-1 <= idx < indexF:
+                ytv = YouTube(vurl[idx])
+                lprint(text_line2, ytv.title)
+                lprint(text_line3, f"Baixando {idx + 1}/{pllen}")
+                while(True):
+                    try:
+                        stream = ytv.streams.get_by_itag(22)
+                        break
+                    except Exception:
+                        pass
                 try:
-                    stream = ytv.streams.get_audio_only()
-                    break
+                    stream.download(filename=f'{ytv.title}.mp3', output_path=path)
                 except Exception:
-                    pass
-            try:
-                stream.download(filename=f'{ytv.title}.mp3', output_path=path)
-            except Exception:
-                stream.download(filename=f'Index-{idx}.mp3', output_path=path)
-            canvas.itemconfig(tagOrId=text_line1, text="Playlist baixada em áudio")
-            canvas.itemconfig(tagOrId=text_line2, text=f'{pllen} áudios')
-            if err == 0:
-                canvas.itemconfig(tagOrId=text_line3, text="Concluídos com sucesso")
-            elif err == 1:
-                canvas.itemconfig(tagOrId=text_line3, text="Download concluído, houve nome inválido")
+                    lprint(text_line2, f"Nome inválido ({idx+1})")
+                    stream.download(filename=f'Index-{idx+1}.mp3', output_path=path)
+                    err = err + 1
+        if err == 0:
+            lprint(text_line3, "Concluído com sucesso")
+        elif err > 0:
+            lprint(text_line3, f"Download concluído, {err} nome(s) inválido(s)")
+        lprint(text_line2, "")
+        indexI = 0
+        indexF = 0
+
+
+def lprint(line, text):
+    canvas.itemconfig(tagOrId=line, text=text)
+    window.update()
+
+def askIndexRange(len):
+    askBox(len=len)
+
+def setIndex(i, f, irwindow):
+    global indexI, indexF
+    indexI = int(i)
+    indexF = int(f)
+    irwindow.destroy()
 
 
 window = Tk()
 window.title("Youtube Downloader by Senkkou")
 window.geometry("472x251")
 window.configure(bg="#3A6A79")
-
-icon = ImageTk.PhotoImage(Image.open(resource_path('pudim.png')))
-window.iconphoto(True, icon)
+window.iconphoto(True, PhotoImage(file=resource_path('pudim.png')))
 
 
 canvas = Canvas(
@@ -176,6 +338,7 @@ entry_2.place(
     width=175.0,
     height=25.0
 )
+entry_2.insert(0, f'{os.path.expanduser("~")}'+r'\Downloads')
 
 image_image_1 = PhotoImage(
     file=resource_path("image_1.png"))
@@ -236,6 +399,7 @@ button_3 = Button(
     command=lambda: selectFolder(),
     relief="flat"
 )
+
 button_3.place(
     x=297.0,
     y=194.0,
