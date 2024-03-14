@@ -1,19 +1,18 @@
 import os
 import sys
 import tkinter
-from pathlib import Path
-from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage, filedialog, messagebox, simpledialog
-from tkinter.simpledialog import askstring
+from tkinter import Tk, Canvas, Entry, Button, PhotoImage, filedialog
 import pytube.exceptions
 from pytube import YouTube
 from pytube import Playlist
-from PIL import ImageTk, Image
+import datetime
+import pytz
 
 
 indexI = 0
 indexF = 0
 
-class askBox():
+class playlistBox():
     def __init__(self, len):
         irwindow = tkinter.Toplevel()
 
@@ -134,37 +133,39 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-def downloadVideo():
+def download(streamType, format):
     canvas.itemconfig(tagOrId=text_line1, text="")
     canvas.itemconfig(tagOrId=text_line2, text="")
     canvas.itemconfig(tagOrId=text_line3, text="")
     window.update()
-    err = 0
+    skipped = []
     url = str(entry_1.get())
     pl = 0
     path = str(entry_2.get())
     if "&list=" in url or "?list=" in url:
+        url = url.split("&index=")[0]
         pl = 1
-
     if pl == 0:
         try:
             ytv = YouTube(url)
         except pytube.exceptions.RegexMatchError:
             return
-        lprint(text_line1, "Download de arquivo único de vídeo")
+        lprint(text_line1, f"Download de arquivo único de {streamType}")
         lprint(text_line2, str(ytv.title))
         lprint(text_line3, "Baixando: 1/1")
-        stream = ytv.streams.get_by_itag(22)
+        if format == "mp3":
+            stream = ytv.streams.get_audio_only()
+        elif format == "mp4":
+            stream = ytv.streams.get_highest_resolution()
         try:
-            stream.download(filename=f'{ytv.title}.mp4', output_path=path)
+            stream.download(filename=f'{ytv.title}.{format}', output_path=path)
         except Exception:
-            lprint(text_line2, "Nome inválido")
-            stream.download(filename=f'Invalid name.mp4', output_path=path)
-            err =1
-        if err==0:
+            skipped.append(f"{ytv.title}")
+            lprint(text_line2, "Erro")
+        if len(skipped) == 0:
             lprint(text_line3, "Concluído com sucesso")
-        elif err==1:
-            lprint(text_line3, "Concluído com nome inválido")
+        elif len(skipped) > 0:
+            lprint(text_line3, "Não foi possível o download")
     elif pl == 1:
         try:
             ytpl = Playlist(url)
@@ -173,106 +174,49 @@ def downloadVideo():
         pllen = ytpl.length
         vurl = ytpl.video_urls
         askIndexRange(pllen)
-        lprint(text_line1, "Download de Playlist de vídeo")
-        global indexI, indexF
-        for idx in range(pllen):
-            if indexI - 1 <= idx < indexF:
-                ytv = YouTube(vurl[idx])
-                lprint(text_line2, ytv.title)
-                lprint(text_line3, f"Baixando {idx + 1}/{pllen}")
-                while(True):
-                    try:
-                        stream = ytv.streams.get_by_itag(22)
-                        break
-                    except Exception:
-                        pass
-                try:
-                    stream.download(filename=f'{ytv.title}.mp4', output_path=path)
-                except Exception:
-                    lprint(text_line2, f"Nome inválido ({idx+1})")
-                    stream.download(filename=f'Index-{idx+1}.mp4', output_path=path)
-                    err = err + 1
-        if err == 0:
-            lprint(text_line3, "Concluído com sucesso")
-        elif err > 0:
-            lprint(text_line3, f"Download concluído, {err} nome(s) inválido(s)")
-        lprint(text_line2, "")
-        indexI = 0
-        indexF = 0
-
-def downloadAudio():
-    canvas.itemconfig(tagOrId=text_line1, text="")
-    canvas.itemconfig(tagOrId=text_line2, text="")
-    canvas.itemconfig(tagOrId=text_line3, text="")
-    window.update()
-    err = 0
-    url = str(entry_1.get())
-    pl = 0
-    path = str(entry_2.get())
-    if "&list=" in url or "?list=" in url:
-        pl = 1
-
-    if pl == 0:
-        try:
-            ytv = YouTube(url)
-        except pytube.exceptions.RegexMatchError:
-            return
-        lprint(text_line1, "Download de arquivo único de áudio")
-        lprint(text_line2, str(ytv.title))
-        lprint(text_line3, "Baixando: 1/1")
-        stream = ytv.streams.get_by_itag(22)
-        try:
-            stream.download(filename=f'{ytv.title}.mp3', output_path=path)
-        except Exception:
-            lprint(text_line2, "Nome inválido")
-            stream.download(filename=f'Invalid name.mp3', output_path=path)
-            err =1
-        if err==0:
-            lprint(text_line3, "Concluído com sucesso")
-        elif err==1:
-            lprint(text_line3, "Concluído com nome inválido")
-    elif pl == 1:
-        try:
-            ytpl = Playlist(url)
-        except pytube.exceptions.RegexMatchError:
-            return
-        pllen = ytpl.length
-        vurl = ytpl.video_urls
-        askIndexRange(pllen)
-        lprint(text_line1, "Download de Playlist de áudio")
+        lprint(text_line1, f"Download de Playlist de {streamType}")
         global indexI, indexF
         for idx in range(pllen):
             if indexI-1 <= idx < indexF:
-                ytv = YouTube(vurl[idx])
+                try:
+                    ytv = YouTube(vurl[idx])
+                except IndexError:
+                    skipped.append(f"{idx + 2} - Sem informação - Erro desconhecido")
+                    continue
                 lprint(text_line2, ytv.title)
                 lprint(text_line3, f"Baixando {idx + 1}/{pllen}")
-                while(True):
-                    try:
-                        stream = ytv.streams.get_by_itag(22)
-                        break
-                    except Exception:
-                        pass
                 try:
-                    stream.download(filename=f'{ytv.title}.mp3', output_path=path)
-                except Exception:
+                    if format == "mp3":
+                        stream = ytv.streams.get_audio_only()
+                    elif format == "mp4":
+                        stream = ytv.streams.get_highest_resolution()
+                    stream.download(filename=f'{ytv.title}.{format}', output_path=path)
+                except pytube.exceptions.AgeRestrictedError:
+                    skipped.append(f"{idx+1} - {ytv.title} - Erro de restrição de idade")
+                    lprint(text_line2, "Erro, pulando para o próximo")
+                except (FileNotFoundError, OSError):
+                    skipped.append(f"{idx+1} - {ytv.title} - Erro no nome, arquivo foi baixado com nome do index")
                     lprint(text_line2, f"Nome inválido ({idx+1})")
-                    stream.download(filename=f'Index-{idx+1}.mp3', output_path=path)
-                    err = err + 1
-        if err == 0:
+                    stream.download(filename=f'Index-{idx+1}.{streamType}', output_path=path)
+        if len(skipped) == 0:
             lprint(text_line3, "Concluído com sucesso")
-        elif err > 0:
-            lprint(text_line3, f"Download concluído, {err} nome(s) inválido(s)")
+        elif len(skipped) > 0:
+            lprint(text_line3, f"Download concluído, houveram itens com erro")
+            time = datetime.datetime.now(pytz.timezone('America/Sao_Paulo'))
+            skippedLog = open(f"Erros - {time.day}-{time.month}-{time.year} {time.hour}h {time.minute}m {time.second}s.txt", "a")
+            for streaming in skipped:
+                skippedLog.write(f'{streaming}\n')
+            skippedLog.close()
         lprint(text_line2, "")
         indexI = 0
         indexF = 0
-
 
 def lprint(line, text):
     canvas.itemconfig(tagOrId=line, text=text)
     window.update()
 
 def askIndexRange(len):
-    askBox(len=len)
+    playlistBox(len=len)
 
 def setIndex(i, f, irwindow):
     global indexI, indexF
@@ -364,7 +308,7 @@ button_1 = Button(
     image=button_image_1,
     borderwidth=0,
     highlightthickness=0,
-    command=lambda: downloadAudio(),
+    command=lambda: download("áudio", "mp3"),
     relief="flat"
 )
 button_1.place(
@@ -380,7 +324,7 @@ button_2 = Button(
     image=button_image_2,
     borderwidth=0,
     highlightthickness=0,
-    command=lambda: downloadVideo(),
+    command=lambda: download("vídeo", "mp4"),
     relief="flat"
 )
 button_2.place(
